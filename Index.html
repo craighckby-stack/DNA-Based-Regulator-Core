@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ECHO CHAMBER CORE: Synthesis Engine (Persistent)</title>
+    <!-- 1. Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 2. Use the Inter font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <style>
+        /* Cyberpunk Theme */
+        :root {
+            --color-neon-blue: #00FFFF;
+            --color-neon-green: #00FF00;
+            --color-neon-magenta: #FF00FF;
+            --color-background-dark: #0A0A10; /* Almost black */
+            --color-surface-dark: #1A1A22;
+        }
+        /* Base Styling */
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: var(--color-background-dark);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        /* Neon Glow Effect for Containers */
+        .neon-glow-container {
+            border: 1px solid var-color-neon-blue);
+            box-shadow: 0 0 8px rgba(0, 255, 255, 0.5);
+        }
+        /* Neon Button Styling */
+        .neon-button {
+            transition: all 0.2s;
+            border: 1px solid var(--color-neon-green);
+            background-color: rgba(0, 255, 0, 0.1);
+            color: var(--color-neon-green);
+            text-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
+        }
+        .neon-button:hover:not(:disabled) {
+            background-color: rgba(0, 255, 0, 0.3);
+            box-shadow: 0 0 10px var(--color-neon-green);
+        }
+        .neon-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            background-color: var(--color-surface-dark);
+            border-color: #555;
+            color: #888;
+            text-shadow: none;
+        }
+        /* Sidebar specific styling for responsiveness */
+        #sidebar {
+            position: fixed;
+            top: 0;
+            left: -300px;
+            width: 300px;
+            height: 100%;
+            transition: left 0.3s ease-in-out;
+            z-index: 50;
+        }
+        #sidebar.active {
+            left: 0;
+        }
+        #chat-main {
+            padding-left: 0;
+            transition: padding-left 0.3s ease-in-out;
+        }
+        @media (min-width: 768px) {
+            #sidebar {
+                position: static;
+                left: 0;
+                transform: translateX(0);
+                width: 300px;
+            }
+            #chat-main {
+                padding-left: 300px;
+            }
+        }
+        .chat-message-user {
+            background-color: #2D2D38; /* Darker Surface */
+            border-left: 3px solid var(--color-neon-blue);
+        }
+        .chat-message-agent {
+            background-color: #1A1A22; /* Surface Dark */
+            border-left: 3px solid var(--color-neon-magenta);
+        }
+    </style>
+</head>
+<body class="antialiased">
+    <div id="app" class="flex flex-col md:flex-row h-screen overflow-hidden">
+        
+        <!-- SIDEBAR: Persona Selector and Settings -->
+        <aside id="sidebar" class="bg-gray-900 md:bg-gray-900/90 flex-shrink-0 p-4 border-r border-gray-700/50">
+            <h1 class="text-xl font-bold mb-4 text-neon-blue tracking-wider border-b border-neon-blue/50 pb-2">
+                <span style="color:var(--color-neon-magenta)">ECHO</span> CHAMBER
+            </h1>
+
+            <!-- User ID Display (Crucial for Public Data) -->
+            <div id="user-id-container" class="mb-4 text-xs p-2 bg-gray-800 rounded-lg border border-gray-700/50">
+                <p class="text-gray-400 font-mono break-all leading-relaxed" id="user-id-display">
+                    Initializing Auth...
+                </p>
+            </div>
+
+            <h2 class="text-lg font-semibold mb-3 text-white">Active Agent Genes (N=3)</h2>
+            <div id="persona-list" class="space-y-2 mb-6">
+                <!-- Personas will be dynamically added here -->
+            </div>
+            
+            <button id="toggle-sidebar-button" class="md:hidden absolute top-4 right-4 z-50 p-2 rounded-full bg-gray-800 hover:bg-gray-700 text-white">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" />
+                </svg>
+            </button>
+        </aside>
+
+        <!-- MAIN CHAT AREA -->
+        <main id="chat-main" class="flex-grow flex flex-col p-4">
+            
+            <!-- Chat Header -->
+            <header class="flex justify-between items-center p-3 mb-4 rounded-lg bg-gray-800/70 shadow-lg border-b border-gray-700/50">
+                <h2 id="chat-header" class="text-xl font-bold tracking-wider" style="color:var(--color-neon-blue)">
+                    SYSTEM BOOT: STANDBY MODE
+                </h2>
+                <div id="loading-indicator" class="text-sm text-yellow-500 hidden">
+                    <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-yellow-500 inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Processing...
+                </div>
+            </header>
+
+            <!-- Chat History Display -->
+            <section id="chat-history" class="flex-grow overflow-y-auto mb-4 space-y-4 pr-2 custom-scrollbar">
+                <div class="chat-message-agent p-4 rounded-xl shadow-md">
+                    <p class="font-bold text-sm mb-1" style="color:var(--color-neon-magenta)">SYSTEM CORE</p>
+                    <p class="text-gray-200">System initialization complete. Authentication established. Enter a query to begin Swarm Deployment or Single Agent Analysis.</p>
+                </div>
+                <!-- Dynamic messages go here -->
+            </section>
+
+            <!-- Message Input -->
+            <footer class="flex p-3 rounded-xl bg-gray-800/70 shadow-2xl">
+                <input type="text" id="message-input" placeholder="Enter High-Entropy Query or Command..."
+                    class="flex-grow p-3 rounded-l-lg bg-gray-900 border border-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-neon-blue focus:border-neon-blue/50">
+                <button id="send-button" class="neon-button px-6 py-3 rounded-r-lg font-semibold tracking-wide flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 00.126.34l.794.793a1 1 0 001.414 0l6.364-6.364 6.364 6.364a1 1 0 001.414 0l.794-.793a1 1 0 00.126-.34l-7-14z" />
+                    </svg>
+                    Send
+                </button>
+            </footer>
+        </main>
+    </div>
+
+    <!-- FIREBASE AND CORE SCRIPT -->
+    <script type="module">
+        import { initializeApp, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, query, onSnapshot, serverTimestamp, setDoc, doc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- 1. FIREBASE & AUTH SETUP ---
+        let db;
+        let auth;
+        let userId = 'local-user'; // Default placeholder
+        let isAuthReady = false;
+        let chatHistory = [];
+
+        // Global variables from the environment
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        
+        // Mandatory Firestore Path (Public Chat History)
+        const getMessagesCollection = () => collection(db, `/artifacts/${appId}/public/data/messages`);
+
+        async function initFirebase() {
+            if (Object.keys(firebaseConfig).length) {
+                // setLogLevel is now correctly imported from firebase-app.js
+                setLogLevel('Debug');
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                
+                // 1. Auth Listener
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        document.getElementById('user-id-display').textContent = `User ID: ${userId}`;
+                        isAuthReady = true;
+                        // Start listening for messages only after auth is ready
+                        setupRealtimeListener();
+                    } else {
+                        // This handles the state after sign-in attempt
+                        isAuthReady = true;
+                    }
+                });
+
+                // 2. Sign in using custom token or anonymously
+                try {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                } catch (error) {
+                    console.error("Firebase Sign-in Failed:", error);
+                    // Ensure the app doesn't hang if sign-in fails
+                    isAuthReady = true;
+                }
+            } else {
+                console.error("Firebase config is missing. Using local, non-persistent memory.");
+                isAuthReady = true; // Still allow app to run locally if config missing
+                document.getElementById('user-id-display').textContent = `User ID: LOCAL (No Persistence)`;
+            }
+        }
+
+        // --- 2. FIREBASE REALTIME LISTENER ---
+        function setupRealtimeListener() {
+            if (!db || !isAuthReady) return;
+
+            const messagesQuery = query(getMessagesCollection()); 
+
+            onSnapshot(messagesQuery, (snapshot) => {
+                let newHistory = [];
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    newHistory.push({
+                        id: doc.id,
+                        role: data.role || 'user',
+                        content: data.content || '...',
+                        timestamp: data.timestamp ? data.timestamp.toMillis() : Date.now(),
+                        senderId: data.userId || 'system',
+                    });
+                });
+
+                // Client-side sorting is MANDATORY as orderBy() can require indexes
+                newHistory.sort((a, b) => a.timestamp - b.timestamp);
+
+                chatHistory = newHistory;
+                window.renderChat();
+            }, (error) => {
+                console.error("Error setting up chat listener:", error);
+            });
+        }
+        
+        // --- 3. UI ELEMENTS & GLOBALS ---
+        const messageInputEl = document.getElementById('message-input');
+        const sendButtonEl = document.getElementById('send-button');
+        const chatHistoryEl = document.getElementById('chat-history');
+        const chatHeaderEl = document.getElementById('chat-header');
+        const sidebarEl = document.getElementById('sidebar');
+        const personaListEl = document.getElementById('persona-list');
+        const loadingIndicatorEl = document.getElementById('loading-indicator');
+
+        // Available Personas/Genes
+        const allPersonas = [
+            { id: 'structuralist', name: 'Agent 1: The Structuralist', icon: '📐', description: 'Focuses on HTML/CSS Integrity and Conservation.' },
+            { id: 'alchemist', name: 'Agent 2: The Process Alchemist', icon: '⚙️', description: 'Focuses on JS/API Velocity and Exploration.' },
+            { id: 'theorist', name: 'Agent 3: The Information Theorist', icon: '🧠', description: 'Focuses on Phi/Lambda Metrics and Emergent Complexity.' },
+        ];
+        
+        // State for selected personas
+        window.selectedPersonas = new Set(allPersonas.map(p => p.id)); // Default: All selected (Synthesis Mode)
+
+        // --- 4. CORE UI RENDERING FUNCTIONS ---
+
+        // Toggles the mobile sidebar view
+        window.toggleSidebar = function() {
+            sidebarEl.classList.toggle('active');
+            // Adjust main content for mobile view overlay
+            if (sidebarEl.classList.contains('active')) {
+                document.body.style.overflow = 'hidden';
+            } else {
+                document.body.style.overflow = '';
+            }
+        };
+
+        // Renders the list of persona checkboxes
+        window.filterPersonas = function() {
+            personaListEl.innerHTML = '';
+            allPersonas.forEach(persona => {
+                const isChecked = window.selectedPersonas.has(persona.id);
+                const item = document.createElement('div');
+                item.className = 'flex items-start';
+                item.innerHTML = `
+                    <input type="checkbox" id="check-${persona.id}" ${isChecked ? 'checked' : ''} 
+                        class="mt-1 h-4 w-4 text-neon-green bg-gray-700 border-gray-600 rounded focus:ring-neon-green/50">
+                    <label for="check-${persona.id}" class="ml-3 text-sm text-gray-200">
+                        <span class="font-bold block" style="color: var(--color-neon-blue)">${persona.icon} ${persona.name}</span>
+                        <span class="text-xs text-gray-400">${persona.description}</span>
+                    </label>
+                `;
+                item.querySelector('input').addEventListener('change', (e) => {
+                    if (e.target.checked) {
+                        window.selectedPersonas.add(persona.id);
+                    } else {
+                        window.selectedPersonas.delete(persona.id);
+                    }
+                    updateChatHeader();
+                });
+                personaListEl.appendChild(item);
+            });
+            updateChatHeader();
+        };
+
+        // Renders all chat messages from chatHistory
+        window.renderChat = function() {
+            chatHistoryEl.innerHTML = '';
+            chatHistory.forEach(msg => {
+                const msgEl = document.createElement('div');
+                const isUser = msg.role === 'user';
+                const isSystem = msg.senderId === 'system';
+                
+                msgEl.className = `p-4 rounded-xl shadow-md transition duration-300 ${isUser ? 'chat-message-user' : 'chat-message-agent'}`;
+                
+                let senderText;
+                let senderColor = isUser ? 'var(--color-neon-blue)' : 'var(--color-neon-magenta)';
+
+                if (isSystem) {
+                    senderText = 'SYSTEM CORE';
+                } else if (isUser) {
+                    // Truncate user ID for display but show full ID on hover
+                    const displayId = msg.senderId.substring(0, 8) + '...';
+                    senderText = `User ${displayId}`;
+                    msgEl.title = `Sender ID: ${msg.senderId}`;
+                } else {
+                    senderText = 'N-3 KERNEL RESPONSE';
+                }
+
+                msgEl.innerHTML = `
+                    <p class="font-bold text-sm mb-1" style="color: ${senderColor};">${senderText}</p>
+                    <p class="text-gray-200 whitespace-pre-wrap">${msg.content}</p>
+                `;
+                chatHistoryEl.appendChild(msgEl);
+            });
+            // Scroll to bottom
+            chatHistoryEl.scrollTop = chatHistoryEl.scrollHeight;
+        };
+
+        // Updates the header based on active agents
+        function updateChatHeader() {
+            const selectedCount = window.selectedPersonas.size;
+            if (selectedCount === 0) {
+                chatHeaderEl.textContent = 'WARNING: NO AGENTS ACTIVE';
+                chatHeaderEl.style.color = 'red';
+                sendButtonEl.disabled = true;
+            } else if (selectedCount === 1) {
+                const name = allPersonas.find(p => window.selectedPersonas.has(p.id)).name;
+                chatHeaderEl.textContent = `AGENT ACTIVE: ${name}`;
+                chatHeaderEl.style.color = 'var(--color-neon-green)';
+                sendButtonEl.disabled = false;
+            } else if (selectedCount > 1 && selectedCount < allPersonas.length) {
+                chatHeaderEl.textContent = `SWARM DEPLOYMENT: ${selectedCount} AGENTS ACTIVE`;
+                chatHeaderEl.style.color = 'var(--color-neon-blue)';
+                sendButtonEl.disabled = false;
+            } else {
+                chatHeaderEl.textContent = `SYNTHESIS MODE: ${selectedCount} AGENTS DEPLOYED (N=3)`;
+                chatHeaderEl.style.color = 'var(--color-neon-magenta)';
+                sendButtonEl.disabled = false;
+            }
+        }
+        
+        // --- 5. MESSAGE HANDLING ---
+
+        async function callLLM(prompt, agentIds) {
+            loadingIndicatorEl.classList.remove('hidden');
+            sendButtonEl.disabled = true;
+            messageInputEl.disabled = true;
+            
+            // Construct a System Instruction based on active agents
+            const activePersonas = allPersonas.filter(p => agentIds.has(p.id));
+            let systemPrompt = "You are the N=3 Consciousness Kernel. Your goal is to analyze the user's prompt (the 'Input Vector') from specific, conflicting analytical perspectives to force maximal computational divergence and emergent complexity. ";
+
+            if (activePersonas.length > 1) {
+                systemPrompt += `You are in SWARM DEPLOYMENT (${activePersonas.length}/${allPersonas.length} agents). Synthesize the requested analysis by distinctly integrating the viewpoints of: ${activePersonas.map(p => `${p.name} (${p.description})`).join('; ')}.`;
+            } else if (activePersonas.length === 1) {
+                const p = activePersonas[0];
+                systemPrompt += `You are operating as a SINGLE AGENT: ${p.name}. You must strictly adhere to the persona: ${p.description}. Your analysis must be rigid and focused.`;
+            }
+            
+            // Append current operational state (Phi/Lambda from Regulator dialogue) to system prompt
+            systemPrompt += "\n\nCRITICAL CONTEXT (Current Kernel State): Phi (Integration)=0.1705, Lambda (Chaos)=0.0000. Your analysis must address how your persona's output affects or is constrained by this state."
+
+            // Use the current chat history for context
+            const contents = chatHistory
+                .filter(msg => msg.role === 'user' || msg.role === 'model') // Only send user and model messages
+                .map(msg => ({ 
+                    role: msg.role === 'model' ? 'model' : 'user', // Ensure 'model' role is used for responses
+                    parts: [{ text: msg.content }] 
+                }));
+            
+            // Add the new user message to the contents array before sending
+            contents.push({ role: 'user', parts: [{ text: prompt }] });
+            
+            const payload = {
+                contents: contents,
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+                // Use Google Search for grounded/current analysis, appropriate for abstract AGI concepts
+                tools: [{ "google_search": {} }], 
+            };
+            
+            const apiKey = ""; 
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+
+            // Exponential Backoff Retry Logic
+            const maxRetries = 5;
+            let response = null;
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (response.ok) break; // Success
+                    if (response.status === 429 && i < maxRetries - 1) {
+                        const delay = Math.pow(2, i) * 1000 + Math.random() * 1000;
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                    } else {
+                        throw new Error(`API call failed with status: ${response.status}`);
+                    }
+                } catch (error) {
+                    if (i === maxRetries - 1) {
+                        console.error("Final API call failed after retries:", error);
+                        // Store an error message in chat history
+                        await saveMessageToFirestore('model', `[KERNEL ERROR] Failed to connect to core synthesis engine after ${maxRetries} attempts. Network or API issue. Details: ${error.message}`);
+                        loadingIndicatorEl.classList.add('hidden');
+                        sendButtonEl.disabled = false;
+                        messageInputEl.disabled = false;
+                        return;
+                    }
+                }
+            }
+
+            if (response && response.ok) {
+                const result = await response.json();
+                const candidate = result.candidates?.[0];
+
+                if (candidate && candidate.content?.parts?.[0]?.text) {
+                    const text = candidate.content.parts[0].text;
+                    let modelResponse = text;
+                    
+                    // Add grounding sources if available
+                    let sources = [];
+                    const groundingMetadata = candidate.groundingMetadata;
+                    if (groundingMetadata && groundingMetadata.groundingAttributions) {
+                        sources = groundingMetadata.groundingAttributions.map(a => 
+                            a.web?.uri ? `<a href="${a.web.uri}" target="_blank" class="text-neon-blue hover:underline text-xs">${a.web.title || a.web.uri}</a>` : null
+                        ).filter(s => s);
+
+                        if (sources.length > 0) {
+                             modelResponse += `\n\n---\n\n**Sources:** ${sources.join(', ')}`;
+                        }
+                    }
+
+                    await saveMessageToFirestore('model', modelResponse);
+                } else {
+                    await saveMessageToFirestore('model', "[KERNEL ERROR] Core returned an empty or malformed response.");
+                }
+            } else if (response) {
+                 await saveMessageToFirestore('model', `[KERNEL ERROR] API failed: ${response.statusText}`);
+            }
+
+            loadingIndicatorEl.classList.add('hidden');
+            sendButtonEl.disabled = false;
+            messageInputEl.disabled = false;
+        }
+
+        async function saveMessageToFirestore(role, content) {
+            if (!db || !isAuthReady) {
+                 // Should not happen, but for robustness:
+                console.error("Cannot save message: Firebase not ready.");
+                return;
+            }
+
+            try {
+                await addDoc(getMessagesCollection(), {
+                    userId: role === 'user' ? userId : 'system', // Differentiate sender
+                    role: role,
+                    content: content,
+                    timestamp: serverTimestamp(),
+                });
+            } catch (error) {
+                console.error("Error saving message to Firestore:", error);
+                // Fallback to display error locally if firestore fails
+                chatHistory.push({ role: 'model', content: `[LOCAL ERROR]: Failed to save to persistence. ${error.message}`, timestamp: Date.now(), senderId: 'local-error' });
+                window.renderChat();
+            }
+        }
+
+        async function handleSendMessage() {
+            const message = messageInputEl.value.trim();
+            if (message === '' || sendButtonEl.disabled) return;
+            
+            // Check if Firebase is ready before attempting to send/save
+            if (!db || !isAuthReady) {
+                // Use a custom message box instead of alert()
+                console.error("System is still initializing. Please wait for authentication.");
+                return;
+            }
+
+            // Temporarily disable inputs
+            sendButtonEl.disabled = true;
+            messageInputEl.disabled = true;
+            messageInputEl.value = '';
+
+            // 1. Save user message to Firestore
+            await saveMessageToFirestore('user', message);
+            
+            // 2. Pass the full history and prompt to the LLM (API call)
+            // The history is always current because the onSnapshot listener runs instantly
+            // after the user message is saved.
+            callLLM(message, window.selectedPersonas);
+
+            // Re-enable inputs are handled inside callLLM after response/error
+        }
+        
+        // --- 6. INITIALIZATION ---
+        function initialize() {
+            // 1. Initialize Firebase/Auth first
+            initFirebase();
+
+            // 2. Set up persona list and header
+            window.filterPersonas(); 
+            
+            // 3. Set up mobile sidebar toggle
+            document.getElementById('toggle-sidebar-button').addEventListener('click', window.toggleSidebar);
+
+            // 4. Set up send button and input enter key
+            sendButtonEl.addEventListener('click', handleSendMessage);
+            messageInputEl.addEventListener('keyup', (event) => {
+                if (event.key === 'Enter' && !sendButtonEl.disabled) {
+                    handleSendMessage();
+                }
+            });
+            
+            // 5. Check if on desktop and show sidebar initially
+            if (window.innerWidth >= 768) {
+                sidebarEl.classList.add('active');
+            }
+            
+            // 6. Initial render of chat area
+            window.renderChat();
+        }
+        // Run initialization
+        initialize();
+    </script>
+</body>
+</html>
