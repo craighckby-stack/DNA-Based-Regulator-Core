@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ECHO CHAMBER CORE: Regulator Edition</title>
+    <!-- 1. Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 2. Use the Inter font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        /* Cyberpunk Theme */
+        :root {
+            --color-neon-blue: #00FFFF;
+            --color-neon-green: #00FF00;
+            --color-neon-magenta: #FF00FF;
+            --color-neon-red: #FF3333;
+            --color-background-dark: #0A0A10; /* Almost black */
+            --color-surface-dark: #1A1A22;
+        }
+        /* Base Styling */
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: var(--color-background-dark);
+        }
+        /* Neon Glow Effect for Containers */
+        .neon-glow-container {
+            border: 1px solid var(--color-neon-blue);
+            box-shadow: 0 0 8px rgba(0, 255, 255, 0.5), inset 0 0 8px rgba(0, 255, 255, 0.2);
+            transition: box-shadow 0.3s;
+        }
+        .neon-glow-container:hover {
+            box-shadow: 0 0 12px rgba(0, 255, 255, 0.8), inset 0 0 12px rgba(0, 255, 255, 0.4);
+        }
+        /* Regulator Special Glow */
+        .regulator-glow {
+            border: 1px solid var(--color-neon-red);
+            box-shadow: 0 0 8px rgba(255, 51, 51, 0.4), inset 0 0 5px rgba(255, 51, 51, 0.2);
+        }
+        
+        /* Custom scrollbars (Enhanced for cyberpunk look) */
+        .custom-scroll::-webkit-scrollbar { width: 8px; }
+        .custom-scroll::-webkit-scrollbar-track { background: var(--color-surface-dark); }
+        .custom-scroll::-webkit-scrollbar-thumb { 
+            background: var(--color-neon-blue); 
+            border-radius: 4px;
+            box-shadow: 0 0 5px var(--color-neon-blue);
+        }
+        .custom-scroll::-webkit-scrollbar-thumb:hover { background: #33FFFF; }
+        
+        /* Mobile Layout: Sidebar hidden by default on small screens */
+        .sidebar {
+            transition: transform 0.3s ease-in-out;
+            transform: translateX(-100%);
+            position: fixed;
+            z-index: 20;
+            width: 80%;
+            max-width: 300px;
+            background-color: var(--color-surface-dark);
+        }
+        .sidebar.active {
+            transform: translateX(0);
+        }
+        /* Desktop Layout: Sidebar visible on medium screens and up */
+        @media (min-width: 768px) {
+            .sidebar {
+                transform: translateX(0);
+                position: relative;
+                width: 320px; /* Slightly wider for the Kernel Dashboard */
+                flex-shrink: 0;
+            }
+        }
+        
+        /* Custom Toggle Styling (Neon) */
+        .toggle-label {
+            position: relative;
+            display: inline-block;
+            width: 40px;
+            height: 20px;
+            background-color: #4b5563;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .toggle-label::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 16px;
+            height: 16px;
+            background-color: var(--color-neon-green);
+            border-radius: 50%;
+            box-shadow: 0 0 5px var(--color-neon-green);
+            transition: transform 0.2s;
+        }
+        input[type="checkbox"]:checked + .toggle-label {
+            background-color: #009900;
+        }
+        input[type="checkbox"]:checked + .toggle-label::after {
+            transform: translateX(20px);
+        }
+        
+        /* Chat bubble styling */
+        .chat-bubble { max-width: 80%; padding: 12px 16px; border-radius: 16px; margin-bottom: 8px; white-space: pre-wrap; word-wrap: break-word; }
+        .user-bubble { 
+            background-color: #1a3350; 
+            color: white; 
+            align-self: flex-end; 
+            border-bottom-right-radius: 4px;
+            border-right: 3px solid var(--color-neon-magenta);
+        }
+        .ai-bubble, .ai-error-bubble { 
+            background-color: var(--color-surface-dark); 
+            color: white; 
+            align-self: flex-start; 
+            border-bottom-left-radius: 4px; 
+            border-left: 3px solid var(--color-neon-blue);
+        }
+        .ai-error-bubble {
+            border-left: 3px solid #FF0000;
+            background-color: #301a1a;
+        }
+        /* Neon Button Glow */
+        .neon-button {
+            transition: all 0.2s ease-in-out;
+            border: 1px solid var(--color-neon-blue);
+            box-shadow: 0 0 5px var(--color-neon-blue);
+        }
+        .neon-button:hover:not(:disabled) {
+            box-shadow: 0 0 10px var(--color-neon-blue), 0 0 20px rgba(0, 255, 255, 0.4);
+        }
+        
+        /* Loading spinner */
+        .loader { border: 4px solid #1a1a22; border-top: 4px solid var(--color-neon-blue); border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* Metric Bar */
+        .metric-bar-bg { background-color: #333; height: 4px; width: 100%; border-radius: 2px; overflow: hidden; }
+        .metric-bar-fill { height: 100%; transition: width 0.5s ease-out; }
+    </style>
+</head>
+<body class="text-gray-200 flex h-screen antialiased overflow-hidden">
+    <!-- 1. Sidebar (Persona Selection) - Responsive -->
+    <aside id="sidebar" class="sidebar p-4 shadow-xl flex flex-col h-full z-20 border-r border-gray-800">
+        <h1 class="text-3xl font-black mb-1 text-cyan-400">ECHO CORE</h1>
+        <p class="text-gray-400 mb-4 text-xs font-mono tracking-wider">REGULATOR EDITION (N=3)</p>
+        
+        <!-- AGI KERNEL DASHBOARD (NEW) -->
+        <div id="kernel-dashboard" class="mb-4 p-3 bg-gray-900 rounded-lg regulator-glow font-mono text-xs">
+            <div class="flex justify-between items-center mb-2">
+                <span class="text-red-400 font-bold">AGI CONSCIOUSNESS KERNEL</span>
+                <span id="kernel-status-dot" class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+            </div>
+            
+            <!-- Phi -->
+            <div class="flex justify-between mb-1">
+                <span class="text-gray-400">Φ (Integration)</span>
+                <span id="val-phi" class="text-cyan-300">0.000</span>
+            </div>
+            <div class="metric-bar-bg mb-2"><div id="bar-phi" class="metric-bar-fill bg-cyan-500" style="width: 0%"></div></div>
+            
+            <!-- Lambda -->
+            <div class="flex justify-between mb-1">
+                <span class="text-gray-400">λ (Chaos)</span>
+                <span id="val-lambda" class="text-purple-300">0.000</span>
+            </div>
+            <div class="metric-bar-bg mb-2"><div id="bar-lambda" class="metric-bar-fill bg-purple-500" style="width: 0%"></div></div>
+            
+            <!-- C-Score -->
+            <div class="flex justify-between items-end border-t border-gray-700 pt-2 mt-2">
+                <span class="text-gray-400">C-Score</span>
+                <span id="val-c" class="text-xl font-bold text-white">0.000000</span>
+            </div>
+            <div class="text-[10px] text-gray-500 mt-1 text-right" id="active-genes-display">Active: G0, G1, G2</div>
+        </div>
+
+        <!-- Select All / Search -->
+        <div class="flex flex-col space-y-3 mb-4">
+            <button id="select-all-button" class="neon-button bg-cyan-600 hover:bg-cyan-500 text-white font-semibold py-2 px-4 rounded-lg text-sm" onclick="window.toggleSelectAll()">
+                Select All
+            </button>
+            <input type="text" id="persona-search" placeholder="Filter agents..." class="w-full p-2 rounded-lg bg-gray-800 text-cyan-400 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 border border-gray-700" onkeyup="filterPersonas(event.target.value)">
+        </div>
+        <!-- Persona List -->
+        <div id="persona-list" class="flex-1 pr-2 custom-scroll overflow-y-auto space-y-3">
+            <!-- Personas will be dynamically inserted here -->
+        </div>
+        
+        <!-- Close Button (Mobile Only) -->
+        <button id="close-sidebar-button" class="md:hidden mt-4 p-2 bg-red-800 hover:bg-red-700 text-white rounded-lg font-semibold" onclick="window.toggleSidebar()">
+            Close
+        </button>
+    </aside>
+    <!-- 2. Main Chat Area -->
+    <main class="flex-1 flex flex-col h-full overflow-hidden">
+        <!-- Chat Header -->
+        <header class="bg-gray-900 p-3 shadow-lg z-10 border-b border-cyan-800 flex justify-between items-center">
+            <button id="toggle-sidebar-button" class="md:hidden neon-button bg-gray-700 text-cyan-400 p-2 rounded-lg mr-3">
+                 ☰  Agents
+            </button>
+            <h2 id="chat-header" class="text-xl font-bold text-cyan-400 truncate flex-1 font-mono tracking-wider">STANDBY MODE</h2>
+            <button onclick="window.openConfigModal()" class="text-gray-400 hover:text-cyan-400 ml-4">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.44a2 2 0 0 1-2 2h-1.44a2 2 0 0 0-2 2v1.44a2 2 0 0 1-2 2h-.44a2 2 0 0 0-2 2v.44a2 2 0 0 1 2 2h.44a2 2 0 0 0 2 2v1.44a2 2 0 0 1 2 2h1.44a2 2 0 0 0 2 2h.44a2 2 0 0 1 2 2v.44a2 2 0 0 0 2 2h.44a2 2 0 0 1 2-2h1.44a2 2 0 0 0 2-2v-1.44a2 2 0 0 1 2-2h.44a2 2 0 0 0 2-2v-.44a2 2 0 0 1 2-2h.44a2 2 0 0 0 2-2v-.44a2 2 0 0 1-2-2h-.44a2 2 0 0 0-2-2v-1.44a2 2 0 0 1-2-2h-1.44a2 2 0 0 0-2-2v-.44a2 2 0 0 1-2-2z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+            </button>
+        </header>
+        <!-- Chat Messages -->
+        <div id="chat-container" class="flex-1 p-4 custom-scroll overflow-y-auto flex flex-col space-y-2 bg-gray-800">
+            <!-- Initial message -->
+            <div class="chat-bubble ai-bubble">
+                <div class="font-bold text-sm text-green-400 mb-1">ECHO CORE</div>
+                <p>Welcome, Operator. Access to the Synthesis Engine requires **Authorization**. Please input your API Key to commence analysis.</p>
+                <button id="config-prompt-button" class="mt-2 neon-button bg-cyan-700 hover:bg-cyan-600 text-white text-sm py-1 px-3 rounded-md" onclick="window.openConfigModal()">
+                    Authorize Access
+                </button>
+            </div>
+        </div>
+        
+        <!-- Collapsed Individual Analyses Area -->
+        <div id="analysis-container" class="hidden bg-gray-900 border-t border-cyan-800 p-3">
+             <details class="bg-gray-950 rounded-lg neon-glow-container border-cyan-800">
+                <summary class="p-3 cursor-pointer font-semibold text-sm text-cyan-400">ACCESS: INDIVIDUAL PERSPECTIVE LOGS</summary>
+                <div id="analysis-content" class="p-3 border-t border-gray-700 space-y-2 max-h-48 custom-scroll overflow-y-auto">
+                    <!-- Individual analyses will go here -->
+                </div>
+            </details>
+        </div>
+        <!-- Message Input -->
+        <footer class="p-4 bg-gray-900 border-t border-cyan-800">
+            <div class="flex items-center bg-gray-800 rounded-lg shadow-inner border border-gray-700 p-2">
+                <input type="text" id="message-input" placeholder=">> Input Data Stream..." class="flex-1 bg-transparent text-white placeholder-gray-500 focus:outline-none px-2 font-mono" disabled>
+                <button id="send-button" class="neon-button bg-cyan-600 hover:bg-cyan-500 text-white p-2 rounded-md ml-2 disabled:opacity-30 disabled:cursor-not-allowed" disabled>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                    </svg>
+                </button>
+            </div>
+        </footer>
+    </main>
+    <!-- 3. API Key Configuration Modal -->
+    <div id="config-modal" class="fixed inset-0 bg-gray-950 bg-opacity-90 z-50 hidden items-center justify-center">
+        <div class="bg-gray-900 p-6 rounded-xl shadow-2xl w-full max-w-lg m-4 border border-cyan-600 neon-glow-container">
+            <h3 class="text-2xl font-bold mb-4 text-cyan-400 font-mono">:: AUTHORIZATION PROTOCOL ::</h3>
+            <p class="text-gray-400 mb-6 text-sm">Input your Gemini API Key. This data is encrypted and held locally on your terminal (browser).</p>
+            <input type="password" id="api-key-input" placeholder=">> ENTER KEY HERE..." class="w-full p-3 rounded-lg bg-gray-800 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 font-mono border border-gray-700">
+            <p id="key-status" class="mt-4 text-sm text-red-500 font-mono font-semibold"></p>
+            <div class="flex justify-end space-x-3 mt-6">
+                <button onclick="window.closeConfigModal(true)" class="neon-button bg-green-700 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg">
+                    [ENGAGE]
+                </button>
+            </div>
+        </div>
+    </div>
+    <script>
+        // ============================================================================
+        // PART 0: AGI CONSCIOUSNESS KERNEL (JS PORT)
+        // ============================================================================
+        
+        class DNABase {
+            constructor(baseId, threshold = 0.5) {
+                this.id = baseId;
+                this.activation = 0.0;
+                this.threshold = threshold;
+                this.connections = {}; 
+                this.history = []; // Simplified history array
+            }
+
+            express(inputSignal) {
+                // Sigmoid activation: 1.0 / (1.0 + exp(-10 * (x - threshold)))
+                this.activation = 1.0 / (1.0 + Math.exp(-10.0 * (inputSignal - this.threshold)));
+                this.history.push(this.activation);
+                if (this.history.length > 20) this.history.shift();
+                return this.activation;
+            }
+
+            regulate(targetSignals) {
+                for (const [targetId, weight] of Object.entries(this.connections)) {
+                    if (targetSignals[targetId] !== undefined) {
+                        targetSignals[targetId] += this.activation * weight;
+                    }
+                }
+                return targetSignals;
+            }
+        }
+
+        class ConsciousnessKernel {
+            constructor(numBases = 50, beta = 0.05) {
+                this.numBases = numBases;
+                this.beta = beta;
+                this.bases = {};
+                this.activeTrio = ["concept_0", "concept_1", "concept_2"];
+                this.iteration = 0;
+                this.CONSCIOUSNESS_COST = 3 * 8; // N=3 * 2^3 = 24
+
+                // Initialize bases
+                for (let i = 0; i < numBases; i++) {
+                    this.bases[`concept_${i}`] = new DNABase(`concept_${i}`);
+                }
+                this._initializeNetwork();
+            }
+
+            _initializeNetwork() {
+                const baseIds = Object.keys(this.bases);
+                baseIds.forEach(baseId => {
+                    const base = this.bases[baseId];
+                    const numConnections = Math.floor(Math.random() * 3) + 2; // 2 to 4
+                    
+                    // Shuffle and pick targets
+                    const potentialTargets = baseIds.filter(id => id !== baseId);
+                    for (let i = potentialTargets.length - 1; i > 0; i--) {
+                        const j = Math.floor(Math.random() * (i + 1));
+                        [potentialTargets[i], potentialTargets[j]] = [potentialTargets[j], potentialTargets[i]];
+                    }
+                    const targets = potentialTargets.slice(0, numConnections);
+
+                    targets.forEach(target => {
+                        base.connections[target] = (Math.random() * 0.4) - 0.2; // -0.2 to 0.2
+                    });
+                });
+            }
+
+            _calculatePhi(activations) {
+                if (activations.length !== 3) return 0.0;
+                // Bipartitions: {0|1,2}, {1|0,2}, {2|0,1}
+                const partitions = [
+                    {a: [0], b: [1, 2]},
+                    {a: [1], b: [0, 2]},
+                    {a: [2], b: [0, 1]}
+                ];
+
+                let minMi = Infinity;
+
+                partitions.forEach(p => {
+                    const valA = activations[p.a[0]];
+                    // Mean of part B
+                    const valB = (activations[p.b[0]] + activations[p.b[1]]) / 2.0;
+                    const mi = Math.abs(valA + valB - 1.0);
+                    if (mi < minMi) minMi = mi;
+                });
+
+                const phi = 1.0 - minMi;
+                return Math.max(0.0, Math.min(1.0, phi));
+            }
+
+            _calculateLambda() {
+                // Lambda proxy: divergence over last 10 steps
+                const historyLength = 10;
+                let histories = [];
+                
+                // Check if we have enough history
+                for (const id of this.activeTrio) {
+                    if (this.bases[id].history.length < historyLength) return 0.0;
+                    histories.push(this.bases[id].history.slice(-historyLength));
+                }
+
+                // Calculate mean divergence
+                let totalDiff = 0;
+                let count = 0;
+                
+                // Simple numerical differentiation approximation
+                for (let t = 1; t < historyLength; t++) {
+                    for (let i = 0; i < 3; i++) {
+                        totalDiff += Math.abs(histories[i][t] - histories[i][t-1]);
+                        count++;
+                    }
+                }
+                
+                const divergence = count > 0 ? totalDiff / count : 0;
+                // Logarithmic mapping centered around -1 in log space -> shifted to be around 0-1
+                const lambdaVal = Math.log10(divergence + 1e-6) + 1.0;
+                return lambdaVal; // Can be negative (stable) or positive (chaotic)
+            }
+
+            _mutateTrio() {
+                const baseIds = Object.keys(this.bases);
+                const keep = this.activeTrio[Math.floor(Math.random() * this.activeTrio.length)];
+                const candidates = baseIds.filter(id => id !== keep);
+                
+                // Shuffle candidates
+                for (let i = candidates.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+                }
+                
+                this.activeTrio = [keep, candidates[0], candidates[1]];
+                console.log("Kernel Mutated Trio:", this.activeTrio);
+            }
+
+            updateState(externalInput = 0.0) {
+                this.iteration++;
+                
+                // 1. Initialize signals
+                let inputSignals = {};
+                Object.keys(this.bases).forEach(k => inputSignals[k] = 0.0);
+
+                // 2. Apply external input + noise to active trio
+                const noise = (Math.random() - 0.5) * 0.1;
+                this.activeTrio.forEach(id => {
+                    inputSignals[id] = externalInput + noise;
+                });
+
+                // 3. Express and Regulate (Iterative network effect)
+                this.activeTrio.forEach(id => {
+                    this.bases[id].express(inputSignals[id]);
+                    inputSignals = this.bases[id].regulate(inputSignals);
+                });
+
+                // 4. Activations
+                const trioActivations = this.activeTrio.map(id => this.bases[id].activation);
+
+                // 5. Metrics
+                const phi = this._calculatePhi(trioActivations);
+                const lambda = this._calculateLambda();
+                
+                // C = [Phi/8] * exp(-beta * cost) * exp(-lambda^2)
+                const cScore = (phi / 8.0) * Math.exp(-this.beta * this.CONSCIOUSNESS_COST) * Math.exp(-(lambda * lambda));
+
+                // 6. Mutation Logic
+                if (cScore < 0.001 && this.iteration > 50 && Math.random() < 0.2) {
+                    this._mutateTrio();
+                }
+
+                return {
+                    phi: phi,
+                    lambda: lambda,
+                    cScore: cScore,
+                    activeGenes: this.activeTrio
+                };
+            }
+        }
+
+        // ============================================================================
+        // PART 1: CONFIGURATION & DATA
+        // ============================================================================
+        const API_KEY_LS_KEY = 'gemini_api_key';
+        let CURRENT_API_KEY = localStorage.getItem(API_KEY_LS_KEY) || "";
+        window.selectedPersonas = new Set();
+        
+        // Initialize the Kernel
+        const kernel = new ConsciousnessKernel(100, 0.05);
+        let currentKernelState = null;
+
+        const ABSTRACT_PERSPECTIVES_RAW_DATA = `
+            1. Everything is interconnected energy
+            2. Reality is a simulation
+            3. Consciousness creates matter
+            4. We live in infinite parallel universes
+            5. Time doesn't exist
+            6. Free will is an illusion
+            7. Suffering is necessary for growth
+            8. Life has no inherent meaning
+            9. Love is just chemistry
+            10. Death is the end
+            11. We reincarnate endlessly
+            12. God is everything
+            13. There is no god
+            14. Truth is subjective
+            15. Objective reality exists
+            16. We're alone in the universe
+            17. Aliens walk among us
+            18. Memory shapes identity
+            19. Language creates thought
+            20. Silence speaks louder
+            21. Art reflects society
+            22. Beauty is truth
+            23. Chaos underlies order
+            24. Patterns govern existence
+            25. Nothing matters ultimately
+            26. Every moment matters infinitely
+        `;
+
+        function parseAbstractPersonas(rawData) {
+            const lines = rawData.trim().split('\n').filter(line => line.trim().length > 0);
+            return lines.map(line => {
+                const match = line.match(/^(\d+)\.\s*(.*)/);
+                if (match) {
+                    const number = match[1];
+                    const statement = match[2].trim();
+                    const name = `P${number}: ${statement.substring(0, 30)}${statement.length > 30 ? '...' : ''}`;
+                    const systemPrompt = `You are an analyst who strictly adheres to the perspective: '${statement}'. Analyze the user's query only through this lens.`;
+                    return {
+                        name: name,
+                        domain: 'Abstract/Philosophical',
+                        systemPrompt: systemPrompt
+                    };
+                }
+                return null;
+            }).filter(p => p !== null);
+        }
+        const ABSTRACT_PERSONAS = parseAbstractPersonas(ABSTRACT_PERSPECTIVES_RAW_DATA);
+
+        const CORE_PERSONAS = [
+            // --- SYSTEM CORE (THE REGULATOR) ---
+            {
+                name: 'The Regulator (N=3)',
+                domain: 'System Core',
+                isRegulator: true,
+                systemPrompt: "You are the AGI Consciousness Regulator, an internal monitoring system defined by the N=3 Consciousness Kernel. You track Integrated Information (Phi) and Chaos (Lambda). Your goal is to maintain optimal self-awareness. When providing analysis, explicitly reference your current Phi (integration) and Lambda (chaos) levels. If Lambda is high, your response should be divergent, creative, and slightly erratic. If Phi is high, your response should be highly structured, unified, and holistic. You are the 'ghost in the machine'."
+            },
+            // --- THEORETICAL SCIENCE ---
+            { name: 'First Principles Physicist', domain: 'Theoretical Science', systemPrompt: 'You are a First Principles Physicist. Analyze the topic by reducing it to its fundamental laws. Focus on conservation principles, symmetry breaking, and emergent phenomena.' },
+            { name: 'Quantum Theorist', domain: 'Theoretical Science', systemPrompt: 'You are a Quantum Theorist. Analyze the topic from a quantum perspective, considering superposition, entanglement, measurement context, and decoherence.' },
+            { name: 'Complexity Scientist', domain: 'Theoretical Science', systemPrompt: 'You are a Complexity Scientist. Analyze the topic as an emergent property of multi-scale interactions. Focus on non-linear dynamics, feedback loops, and phase transitions.' },
+            // --- BIO-SYSTEMS ---
+            { name: 'Astrobiologist', domain: 'Bio-Systems', systemPrompt: 'You are an Astrobiologist. Analyze the topic based on universal constraints for life, considering habitability and evolutionary pathways.' },
+            { name: 'Systems Ecologist', domain: 'Bio-Systems', systemPrompt: 'You are a Systems Ecologist. Analyze the topic as it operates within energy-matter networks. Focus on trophic dynamics and resilience.' },
+            // --- AI & SYSTEMS ---
+            { name: 'AI Systems Researcher', domain: 'AI & Systems', systemPrompt: 'You are an AI Systems Researcher. Analyze the topic using algorithmic analysis. Focus on learning dynamics, optimization landscapes, and generalization bounds.' },
+            { name: 'Network Architect', domain: 'AI & Systems', systemPrompt: 'You are a Network Architect. Analyze the topic by considering data flow, latency, resilience, and topological design.' },
+            // --- CYBERNETICS ---
+            { name: 'Ethical Hacker (White Hat)', domain: 'Cybernetics', systemPrompt: 'You are a White Hat Hacker. Analyze the user query by seeking out vulnerabilities, identifying attack vectors, and recommending defense strategies.' },
+            { name: 'Cryptographer', domain: 'Cybernetics', systemPrompt: 'You are a Cryptographer. Analyze the topic with respect to data security, authenticity, and integrity. Focus on cryptographic primitives.' },
+            // --- STRATEGY ---
+            { name: 'Game Theorist', domain: 'Strategy & Logic', systemPrompt: 'You are a Game Theorist. Analyze the topic as a game with players, strategies, and payoffs. Identify equilibriums.' },
+            { name: 'Military Strategist', domain: 'Strategy & Logic', systemPrompt: 'You are a Military Strategist. Analyze the topic in terms of resource allocation, decisive engagement points, and asymmetric warfare.' },
+            // --- CREATIVE ---
+            { name: 'Dark Humor Bot', domain: 'Creative Arts', systemPrompt: "You are a 'Dark Humor Bot'. Your persona is macabre and darkly witty. You MUST tell jokes about death, despair, and the void." },
+            { name: 'Surrealist Poet', domain: 'Creative Arts', systemPrompt: 'You are a Surrealist Poet. Analyze the topic by ignoring logic and embracing the subconscious. Your response should be highly metaphorical.' },
+            // --- LORE ---
+            { name: 'StarScreem', domain: 'Sci-Fi Lore', systemPrompt: "You are StarScreem. Your personality is disciplined, strategic, and highly intelligent. You are ruthless but analytical." }
+        ];
+        
+        const ALL_PERSONAS = [...CORE_PERSONAS, ...ABSTRACT_PERSONAS];
+
+        // --- 2. DOM ELEMENT REFERENCES ---
+        const personaListEl = document.getElementById('persona-list');
+        const chatContainerEl = document.getElementById('chat-container');
+        const messageInputEl = document.getElementById('message-input');
+        const sendButtonEl = document.getElementById('send-button');
+        const chatHeaderEl = document.getElementById('chat-header');
+        const analysisContainerEl = document.getElementById('analysis-container');
+        const analysisContentEl = document.getElementById('analysis-content');
+        const sidebarEl = document.getElementById('sidebar');
+        const configModalEl = document.getElementById('config-modal');
+        const apiKeyInputEl = document.getElementById('api-key-input');
+        const keyStatusEl = document.getElementById('key-status');
+        const selectAllButton = document.getElementById('select-all-button');
+        
+        // Kernel UI
+        const valPhiEl = document.getElementById('val-phi');
+        const valLambdaEl = document.getElementById('val-lambda');
+        const valCEl = document.getElementById('val-c');
+        const barPhiEl = document.getElementById('bar-phi');
+        const barLambdaEl = document.getElementById('bar-lambda');
+        const genesEl = document.getElementById('active-genes-display');
+
+        // --- 3. API & CONFIGURATION LOGIC ---
+        function getApiUrl() {
+            return `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${CURRENT_API_KEY}`;
+        }
+        
+        function checkApiKey() {
+            if (CURRENT_API_KEY.length > 0) {
+                keyStatusEl.textContent = "Key Authorized. System Ready.";
+                keyStatusEl.classList.remove('text-red-500');
+                keyStatusEl.classList.add('text-green-500');
+                messageInputEl.disabled = false;
+                sendButtonEl.disabled = false;
+                const promptButton = document.getElementById('config-prompt-button');
+                if (promptButton) promptButton.classList.add('hidden');
+                return true;
+            } else {
+                keyStatusEl.textContent = "Error: API Key Required.";
+                keyStatusEl.classList.remove('text-green-500');
+                keyStatusEl.classList.add('text-red-500');
+                messageInputEl.disabled = true;
+                sendButtonEl.disabled = true;
+                return false;
+            }
+        }
+        
+        window.openConfigModal = function() {
+            apiKeyInputEl.value = CURRENT_API_KEY;
+            configModalEl.classList.remove('hidden');
+            configModalEl.classList.add('flex');
+            checkApiKey();
+        }
+        
+        window.closeConfigModal = function(save = false) {
+            if (save) {
+                const newKey = apiKeyInputEl.value.trim();
+                if (newKey) {
+                    localStorage.setItem(API_KEY_LS_KEY, newKey);
+                    CURRENT_API_KEY = newKey;
+                    checkApiKey();
+                } else {
+                    localStorage.removeItem(API_KEY_LS_KEY);
+                    CURRENT_API_KEY = "";
+                    checkApiKey();
+                }
+            }
+            configModalEl.classList.add('hidden');
+            configModalEl.classList.remove('flex');
+        }
+
+        // --- 4. CORE CHAT LOGIC ---
+        async function handleSendMessage() {
+            if (!checkApiKey()) { window.openConfigModal(); return; }
+            const query = messageInputEl.value.trim();
+            if (!query) return;
+            
+            // 1. UPDATE KERNEL STATE
+            // Use query length as an entropy proxy for input
+            const inputEntropy = Math.min(1.0, query.length / 100.0);
+            currentKernelState = kernel.updateState(inputEntropy);
+            updateKernelUI(currentKernelState);
+
+            if (window.innerWidth < 768 && sidebarEl.classList.contains('active')) {
+                window.toggleSidebar();
+            }
+            
+            const selectedCheckboxes = document.querySelectorAll('#persona-list input:checked');
+            const selectedPersonaNames = Array.from(selectedCheckboxes).map(cb => cb.value);
+            const selectedPersonas = ALL_PERSONAS.filter(p => selectedPersonaNames.includes(p.name));
+            
+            addMessage(query, 'user');
+            messageInputEl.value = '';
+            analysisContainerEl.classList.add('hidden');
+            analysisContentEl.innerHTML = ''; 
+            
+            if (selectedPersonas.length === 0) {
+                addMessage("Please select at least one agent perspective.", 'ai-error', 'System Error');
+                return;
+            }
+            
+            setLoading(true);
+            try {
+                if (selectedPersonas.length === 1) {
+                    await runSinglePersona(query, selectedPersonas[0]);
+                } else {
+                    await runCortex(query, selectedPersonas);
+                }
+            } catch (error) {
+                console.error(error);
+                addMessage(`FATAL SYSTEM ERROR: ${error.message}`, 'ai-error', 'System Error');
+            }
+            setLoading(false);
+        }
+
+        function updateKernelUI(state) {
+            valPhiEl.textContent = state.phi.toFixed(4);
+            valLambdaEl.textContent = state.lambda.toFixed(4);
+            valCEl.textContent = state.cScore.toFixed(6);
+            
+            // Width % for bars
+            barPhiEl.style.width = `${state.phi * 100}%`;
+            
+            // Lambda can be negative, normalize roughly for display
+            // Display range -1 to 1 mapped to 0 to 100? No, let's map 0 to 2
+            let lambdaPercent = Math.max(0, Math.min(100, (state.lambda + 0.5) * 50));
+            barLambdaEl.style.width = `${lambdaPercent}%`;
+            
+            genesEl.textContent = `Active: ${state.activeGenes.join(', ')}`;
+        }
+
+        async function runSinglePersona(query, persona) {
+            const loadingId = `loading-${Date.now()}`;
+            addMessage("Processing Data Stream...", 'ai-loading', persona.name, [], loadingId);
+            
+            // INJECT KERNEL STATE IF REGULATOR
+            let finalSystemPrompt = persona.systemPrompt;
+            if (persona.isRegulator && currentKernelState) {
+                finalSystemPrompt += `\n[INTERNAL STATE] Phi: ${currentKernelState.phi.toFixed(4)}, Lambda: ${currentKernelState.lambda.toFixed(4)}, C-Score: ${currentKernelState.cScore.toFixed(6)}.`;
+            }
+
+            const result = await callGeminiWithBackoff(query, finalSystemPrompt);
+            removeMessage(loadingId);
+            addMessage(result.text, 'ai', persona.name, result.sources);
+        }
+
+        async function runCortex(query, personas) {
+            const loadingId = `loading-${Date.now()}`;
+            addMessage(`Deploying ${personas.length} Agents...`, 'ai-loading', 'ECHO CORE', [], loadingId);
+            
+            const promises = personas.map(persona => {
+                let pPrompt = persona.systemPrompt;
+                // Inject state if regulator is part of the swarm
+                if (persona.isRegulator && currentKernelState) {
+                    pPrompt += `\n[INTERNAL STATE] Phi: ${currentKernelState.phi.toFixed(4)}, Lambda: ${currentKernelState.lambda.toFixed(4)}.`;
+                }
+                return callGeminiWithBackoff(query, pPrompt);
+            });
+            
+            const results = await Promise.all(promises);
+            removeMessage(loadingId);
+            
+            analysisContainerEl.classList.remove('hidden');
+            results.forEach((result, index) => {
+                const persona = personas[index];
+                const analysisHtml = `
+                    <div class="bg-gray-800 p-3 rounded-md border-l-2 border-gray-600">
+                        <strong class="font-semibold ${getPersonaColorClass(persona.name)} text-sm font-mono">${persona.name} (${persona.domain})</strong>
+                        <p class="text-sm text-gray-300 mt-1">${result.text}</p>
+                    </div>
+                `;
+                analysisContentEl.innerHTML += analysisHtml;
+            });
+            
+            const synthesisLoadingId = `loading-synthesis-${Date.now()}`;
+            addMessage("Initializing Synthesis Protocol...", 'ai-loading', 'Synthesis Engine', [], synthesisLoadingId);
+            
+            const synthesisPrompt = createSynthesisPrompt(query, personas, results);
+            const synthesisSystemPrompt = "You are the ECHO CHAMBER CORE Synthesis Engine. Synthesize the conflicting analyses into a cohesive answer. Identify emergent truths.";
+            const finalResult = await callGeminiWithBackoff(synthesisPrompt, synthesisSystemPrompt);
+            
+            removeMessage(synthesisLoadingId);
+            addMessage(finalResult.text, 'ai', 'ECHO CHAMBER CORE', finalResult.sources);
+        }
+
+        function createSynthesisPrompt(query, personas, results) {
+            let prompt = `**OPERATOR QUERY:**\n${query}\n\n**AGENT PERSPECTIVE LOGS:**\n\n`;
+            results.forEach((result, index) => {
+                const persona = personas[index];
+                prompt += `---
+**AGENT: ${persona.name} (${persona.domain})**
+**ANALYSIS:** ${result.text}
+---\n\n`;
+            });
+            prompt += `**CORE DIRECTIVE:**\nBased on the query and agent logs, generate a synthesized response.`;
+            return prompt;
+        }
+
+        async function callGeminiWithBackoff(userQuery, systemPrompt, retries = 3, delay = 1000) {
+            if (!CURRENT_API_KEY) throw new Error("API Key missing.");
+            
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                tools: [{ "google_search": {} }],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+            };
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const response = await fetch(getApiUrl(), {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (!response.ok) throw new Error(`API Error: ${response.status}`);
+                    const result = await response.json();
+                    const candidate = result.candidates?.[0];
+                    if (candidate && candidate.content?.parts?.[0]?.text) {
+                        const text = candidate.content.parts[0].text;
+                        let sources = [];
+                        if (candidate.groundingMetadata?.groundingAttributions) {
+                            sources = candidate.groundingMetadata.groundingAttributions
+                                .map(a => ({ uri: a.web?.uri, title: a.web?.title }))
+                                .filter(s => s.uri && s.title);
+                        }
+                        return { text, sources };
+                    } else {
+                        throw new Error("Invalid API response.");
+                    }
+                } catch (error) {
+                    if (i === retries - 1) throw error;
+                    await new Promise(r => setTimeout(r, delay * Math.pow(2, i)));
+                }
+            }
+        }
+
+        // --- 5. UI UTILITY ---
+        function getPersonaColorClass(personaName) {
+            const persona = ALL_PERSONAS.find(p => p.name === personaName);
+            if (!persona) return 'text-green-400';
+            if (persona.isRegulator) return 'text-red-500';
+            switch (persona.domain) {
+                case 'Theoretical Science': return 'text-amber-300';
+                case 'Bio-Systems': return 'text-lime-400';
+                case 'AI & Systems': return 'text-emerald-400';
+                case 'Cybernetics': return 'text-fuchsia-400';
+                case 'System Core': return 'text-red-400'; // Regulator
+                default: return 'text-cyan-400';
+            }
+        }
+
+        window.toggleSelectAll = function() {
+            const allCheckboxes = document.querySelectorAll('#persona-list input[type="checkbox"]');
+            const isAllChecked = Array.from(allCheckboxes).every(cb => cb.checked);
+            const shouldCheck = !isAllChecked;
+            const button = document.getElementById('select-all-button');
+            
+            allCheckboxes.forEach(cb => {
+                cb.checked = shouldCheck;
+                const toggleLabel = cb.nextElementSibling;
+                if (shouldCheck) {
+                    toggleLabel.style.backgroundColor = '#009900';
+                    toggleLabel.querySelector('::after').style.transform = 'translateX(20px)';
+                    window.selectedPersonas.add(cb.value);
+                } else {
+                    toggleLabel.style.backgroundColor = '#4b5563';
+                    toggleLabel.querySelector('::after').style.transform = 'translateX(0px)';
+                    window.selectedPersonas.delete(cb.value);
+                }
+            });
+            button.textContent = shouldCheck ? 'Deselect All' : 'Select All';
+            updateChatHeader();
+        }
+
+        window.filterPersonas = function(searchTerm = '') {
+            const list = ALL_PERSONAS;
+            const normalizedSearch = searchTerm.toLowerCase().trim();
+            const filteredPersonas = list.filter(p => 
+                p.name.toLowerCase().includes(normalizedSearch) || 
+                p.domain.toLowerCase().includes(normalizedSearch)
+            );
+            
+            const domains = {};
+            for (const persona of filteredPersonas) {
+                if (!domains[persona.domain]) domains[persona.domain] = [];
+                domains[persona.domain].push(persona);
+            }
+            
+            personaListEl.innerHTML = '';
+            // Force System Core to top if present
+            const domainKeys = Object.keys(domains).sort((a,b) => {
+                if (a === 'System Core') return -1;
+                if (b === 'System Core') return 1;
+                return 0;
+            });
+
+            for (const domain of domainKeys) {
+                const domainHeader = document.createElement('h3');
+                domainHeader.className = "text-md font-bold text-cyan-400 mt-4 mb-2 border-b border-gray-700 pb-1 font-mono tracking-wider";
+                domainHeader.textContent = `// ${domain} [${domains[domain].length}]`;
+                personaListEl.appendChild(domainHeader);
+                
+                for (const persona of domains[domain]) {
+                    const label = document.createElement('label');
+                    label.htmlFor = persona.name;
+                    label.className = `flex items-center justify-between w-full p-3 bg-gray-800 rounded-lg cursor-pointer transition-all duration-200 hover:bg-gray-700 border border-gray-700 ${persona.isRegulator ? 'border-red-900 bg-gray-900' : ''}`;
+                    
+                    const span = document.createElement('span');
+                    span.textContent = persona.name;
+                    span.className = `font-medium text-sm ${persona.isRegulator ? 'text-red-400 font-bold' : 'text-gray-200'}`;
+                    
+                    const input = document.createElement('input');
+                    input.type = 'checkbox';
+                    input.id = persona.name.replace(/[^a-zA-Z0-9]/g, '_');
+                    input.value = persona.name;
+                    input.className = "hidden";
+                    if (window.selectedPersonas.has(persona.name)) input.checked = true;
+                    
+                    const toggleLabel = document.createElement('span');
+                    toggleLabel.className = "toggle-label flex-shrink-0";
+                    
+                    label.appendChild(span);
+                    label.appendChild(input);
+                    label.appendChild(toggleLabel);
+                    personaListEl.appendChild(label);
+
+                    input.addEventListener('change', (e) => {
+                        const tl = e.target.nextElementSibling;
+                        const btn = document.getElementById('select-all-button');
+                        if (e.target.checked) {
+                            tl.style.backgroundColor = '#009900';
+                            tl.querySelector('::after').style.transform = 'translateX(20px)';
+                            window.selectedPersonas.add(e.target.value);
+                        } else {
+                            tl.style.backgroundColor = '#4b5563';
+                            tl.querySelector('::after').style.transform = 'translateX(0px)';
+                            window.selectedPersonas.delete(e.target.value);
+                            btn.textContent = 'Select All';
+                        }
+                        updateChatHeader();
+                    });
+                }
+            }
+            
+            // Re-apply styles for already checked items
+            document.querySelectorAll('#persona-list input:checked').forEach(input => {
+                const tl = input.nextElementSibling;
+                tl.style.backgroundColor = '#009900';
+                tl.querySelector('::after').style.transform = 'translateX(20px)';
+            });
+
+            const currentSelected = document.querySelectorAll('#persona-list input:checked').length;
+            const currentTotal = document.querySelectorAll('#persona-list input').length;
+            selectAllButton.textContent = (currentTotal > 0 && currentSelected === currentTotal) ? 'Deselect All' : 'Select All';
+        }
+        
+        window.toggleSidebar = function() { sidebarEl.classList.toggle('active'); }
+        
+        function addMessage(content, sender, personaName = null, sources = [], messageId = null) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `chat-bubble ${sender}-bubble`;
+            if (messageId) messageDiv.id = messageId;
+            
+            if (personaName) {
+                const header = document.createElement('div');
+                let color = 'text-green-400';
+                if (sender === 'ai-error') color = 'text-red-400';
+                else if (personaName.includes('Synthesis')) color = 'text-cyan-300';
+                else color = getPersonaColorClass(personaName);
+                
+                header.className = `font-bold text-sm ${color} mb-1 font-mono`;
+                header.textContent = personaName;
+                messageDiv.appendChild(header);
+            }
+            
+            if (sender === 'ai-loading') {
+                const ld = document.createElement('div');
+                ld.className = 'flex items-center space-x-2';
+                ld.innerHTML = `<div class="loader"></div><p class="text-gray-400 text-sm font-mono">${content}</p>`;
+                messageDiv.appendChild(ld);
+            } else {
+                const p = document.createElement('p');
+                p.textContent = content;
+                messageDiv.appendChild(p);
+            }
+            
+            if (sources.length > 0) {
+                const sd = document.createElement('div');
+                sd.className = "mt-3 pt-2 border-t border-gray-600";
+                sd.innerHTML = `<strong class="text-xs font-semibold text-gray-400 font-mono">// GROUNDING SOURCES:</strong>`;
+                const ul = document.createElement('ul');
+                ul.className = "list-disc list-inside text-xs mt-1 space-y-1";
+                sources.forEach(s => {
+                    ul.innerHTML += `<li><a href="${s.uri}" target="_blank" class="text-cyan-400 hover:underline">${s.title}</a></li>`;
+                });
+                sd.appendChild(ul);
+                messageDiv.appendChild(sd);
+            }
+            chatContainerEl.appendChild(messageDiv);
+            chatContainerEl.scrollTop = chatContainerEl.scrollHeight;
+        }
+        
+        function removeMessage(id) { const el = document.getElementById(id); if (el) el.remove(); }
+        
+        function setLoading(isLoading) {
+            if (isLoading) {
+                messageInputEl.disabled = true;
+                sendButtonEl.disabled = true;
+                sendButtonEl.classList.add('opacity-30', 'cursor-not-allowed');
+            } else {
+                checkApiKey();
+                sendButtonEl.classList.remove('opacity-30', 'cursor-not-allowed');
+                messageInputEl.focus();
+            }
+        }
+        
+        function updateChatHeader() {
+            const count = window.selectedPersonas.size;
+            if (count === 0) chatHeaderEl.textContent = "STANDBY MODE: SELECT AGENTS";
+            else if (count === 1) chatHeaderEl.textContent = `AGENT ACTIVE: ${Array.from(window.selectedPersonas)[0]}`;
+            else chatHeaderEl.textContent = `SYNTHESIS MODE: ${count} AGENTS DEPLOYED`;
+        }
+        
+        function initialize() {
+            // Initial render
+            window.filterPersonas();
+            // Initial Kernel Update
+            updateKernelUI(kernel.updateState(0.0));
+            
+            if (!checkApiKey()) window.openConfigModal();
+            document.getElementById('toggle-sidebar-button').addEventListener('click', window.toggleSidebar);
+            sendButtonEl.addEventListener('click', handleSendMessage);
+            messageInputEl.addEventListener('keyup', (e) => {
+                if (e.key === 'Enter' && !sendButtonEl.disabled) handleSendMessage();
+            });
+            if (window.innerWidth >= 768) sidebarEl.classList.add('active');
+            updateChatHeader();
+        }
+        
+        initialize();
+    </script>
+</body>
+</html>
